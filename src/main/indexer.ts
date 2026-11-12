@@ -51,6 +51,7 @@ export function parseBlockXml(filePath: string, xml: string, refsPath: string): 
   const folder = parts.slice(programBlocksIndex + 1, -1).join("/");
   const fallbackName = path.basename(filePath, ".xml");
   const name = extractField(xml, /<Name>([^<]+)<\/Name>/) || fallbackName;
+  const number = extractField(xml, /<Number>([^<]+)<\/Number>/);
   const language = extractField(xml, /<ProgrammingLanguage>([^<]+)<\/ProgrammingLanguage>/) || "—";
 
   return {
@@ -59,6 +60,7 @@ export function parseBlockXml(filePath: string, xml: string, refsPath: string): 
     cpu,
     folder,
     name,
+    number,
     type,
     language,
     relativePath: relativePath.replaceAll(path.sep, "/"),
@@ -237,7 +239,7 @@ export class ProjectIndexer {
     if (!force) {
       try {
         const cached = JSON.parse(await readFile(this.indexPath, "utf8")) as IndexData;
-        if (cached.version === 2 && cached.signature === signature && Array.isArray(cached.calls)) {
+        if (cached.version === 3 && cached.signature === signature && Array.isArray(cached.calls)) {
           this.notify({ phase: "ready", current: cached.records.length, total: cached.records.length, message: "Índice local carregado." });
           return { index: cached, reused: true };
         }
@@ -263,7 +265,7 @@ export class ProjectIndexer {
     }
 
     records.sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
-    const index: IndexData = { version: 2, generatedAt: new Date().toISOString(), signature, records, calls };
+    const index: IndexData = { version: 3, generatedAt: new Date().toISOString(), signature, records, calls };
     await mkdir(path.dirname(this.indexPath), { recursive: true });
     await writeFile(this.indexPath, JSON.stringify(index, null, 2), "utf8");
     this.notify({ phase: "ready", current: total, total, message: `${records.length} blocos indexados.` });

@@ -7,6 +7,7 @@ export interface BlockRecord {
   cpu: string;
   folder: string;
   name: string;
+  number: string;
   type: BlockType;
   language: string;
   relativePath: string;
@@ -34,7 +35,7 @@ export interface CallRecord {
 }
 
 export interface IndexData {
-  version: 2;
+  version: 3;
   generatedAt: string;
   signature: string;
   records: BlockRecord[];

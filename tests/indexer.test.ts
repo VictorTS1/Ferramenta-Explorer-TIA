@@ -10,7 +10,7 @@ describe("amostras de referência", () => {
     const refsPath = path.join(root, "refs");
     const filePath = path.join(refsPath, "V6-39E231.ap17", "KASTIH1-----BS1---KFU1", "Program blocks", "ARG", "1_OB", "OB1.xml");
     const record = parseBlockXml(filePath, await readFile(filePath, "utf8"), refsPath);
-    expect(record).toMatchObject({ project: "V6-39E231.ap17", cpu: "KASTIH1-----BS1---KFU1", folder: "ARG/1_OB", name: "OB1", type: "OB", language: "LAD" });
+    expect(record).toMatchObject({ project: "V6-39E231.ap17", cpu: "KASTIH1-----BS1---KFU1", folder: "ARG/1_OB", name: "OB1", number: "1", type: "OB", language: "LAD" });
   });
 
   it("distingue DB de instância e DB global", () => {
@@ -19,6 +19,13 @@ describe("amostras de referência", () => {
     const global = parseBlockXml(path.join(refsPath, "Projeto.ap17", "CPU", "Program blocks", "DB-Anwender", "x.xml"), "<SW.Blocks.GlobalDB><Name>Usuario</Name><ProgrammingLanguage>DB</ProgrammingLanguage>", refsPath);
     expect(instance?.type).toBe("InstanceDB");
     expect(global?.type).toBe("GlobalDB");
+  });
+
+  it("extrai o número técnico de uma FC", async () => {
+    const refsPath = path.join(root, "refs");
+    const filePath = path.join(refsPath, "V6-39E231.ap17", "KASTIH1-----BS1---KFU1", "Program blocks", "VASS_V6", "ZAU", "ZAU_Werte", "FC_ZAU_Werte.xml");
+    const record = parseBlockXml(filePath, await readFile(filePath, "utf8"), refsPath);
+    expect(record).toMatchObject({ name: "FC_ZAU_Werte", number: "600", type: "FC" });
   });
 
   it("localiza a chamada de IBN no OB1", async () => {

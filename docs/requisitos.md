@@ -40,6 +40,8 @@ Ela deve:
 - extrair projeto, CPU, pasta, nome, tipo, linguagem e caminho do XML;
 - permitir filtros por projeto, CPU e categoria/tipo de bloco;
 - permitir pesquisa textual por nome e caminho;
+- permitir pesquisa exata por número técnico com prefixo de tipo, como `FC13`, `FB200` e `DB2010`;
+- tratar uma consulta composta somente por números como pesquisa textual, sem presumir o tipo de bloco;
 - listar projeto, CPU, pasta, nome, tipo, linguagem e caminho completo;
 - apresentar um painel de detalhes para o bloco selecionado;
 - informar progresso, referências ausentes e falhas de leitura;
