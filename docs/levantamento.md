@@ -92,6 +92,8 @@ Cada ocorrência de lógica pertence a uma `SW.Blocks.CompileUnit`. A ferramenta
 | Título | `MultilingualText` com `CompositionName="Title"`. |
 | Comentário | `MultilingualText` ou `Comment`, com `CompositionName="Comment"`. |
 
+As chamadas de bloco são identificadas por `CallInfo`. Para navegação, a ocorrência deve manter o bloco chamador, a unidade compilada e seu ID XML. Em LAD e F_LAD, a ordem da `CompileUnit` é apresentada como network calculada; o export não contém um número de network explícito.
+
 ## Tratamentos por linguagem e estrutura
 
 - `LAD`: interpretar redes, partes e conexões.

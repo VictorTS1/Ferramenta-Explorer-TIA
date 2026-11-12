@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { BlockRecord, BlockType, IndexData, IndexProgress } from "../shared/types";
+import { SaxesParser } from "saxes";
+import type { BlockRecord, BlockType, CallRecord, CallableBlockType, IndexData, IndexProgress } from "../shared/types";
 
 const BLOCK_TYPES: Array<[RegExp, BlockType]> = [
   [/<SW\.Blocks\.OB\b/, "OB"],
@@ -10,6 +11,10 @@ const BLOCK_TYPES: Array<[RegExp, BlockType]> = [
   [/<SW\.Blocks\.InstanceDB\b/, "InstanceDB"],
   [/<SW\.Blocks\.GlobalDB\b/, "GlobalDB"]
 ];
+
+const INFRASTRUCTURE_BLOCKS = new Set([
+  "R_Trig", "F_Trig", "TON", "TOF", "TP", "CTU", "CTD", "BIT_TO_BYTE", "DTL_TO_BCD", "R_BIT_IN_DWORD"
+]);
 
 export class MissingReferencesError extends Error {
   constructor(referencePath: string) {
@@ -61,6 +66,139 @@ export function parseBlockXml(filePath: string, xml: string, refsPath: string): 
   };
 }
 
+interface PendingCall {
+  calleeName: string;
+  calleeType: CallableBlockType;
+  callOrder: number;
+}
+
+interface CompileUnit {
+  id: string;
+  order: number;
+  language: string;
+  title: string;
+  comment: string;
+  calls: PendingCall[];
+}
+
+interface TextCollector {
+  kind: "title" | "comment";
+  culture: string;
+  field: "culture" | "text" | null;
+  value: string;
+  fallback: string;
+}
+
+function attribute(tag: { attributes: Record<string, string> }, name: string): string {
+  return tag.attributes[name] ?? "";
+}
+
+function closingName(tag: string | { name: string }): string {
+  return typeof tag === "string" ? tag : tag.name;
+}
+
+export function parseCallsXml(caller: BlockRecord, xml: string): CallRecord[] {
+  const calls: CallRecord[] = [];
+  let activeUnit: CompileUnit | null = null;
+  let unitCount = 0;
+  let textCollector: TextCollector | null = null;
+  let readingLanguage = false;
+  let languageText = "";
+
+  try {
+    const parser = new SaxesParser({ xmlns: false, position: false });
+    parser.on("opentag", (tag) => {
+      if (tag.name === "SW.Blocks.CompileUnit") {
+        unitCount += 1;
+        activeUnit = { id: attribute(tag, "ID"), order: unitCount, language: caller.language, title: "", comment: "", calls: [] };
+        return;
+      }
+      if (!activeUnit) return;
+
+      if (tag.name === "MultilingualText") {
+        const composition = attribute(tag, "CompositionName");
+        if (composition === "Title" || composition === "Comment") {
+          textCollector = { kind: composition === "Title" ? "title" : "comment", culture: "", field: null, value: "", fallback: "" };
+        }
+      } else if (textCollector && tag.name === "Culture") {
+        textCollector.field = "culture";
+        textCollector.value = "";
+      } else if (textCollector && tag.name === "Text") {
+        textCollector.field = "text";
+        textCollector.value = "";
+      } else if (tag.name === "ProgrammingLanguage") {
+        readingLanguage = true;
+        languageText = "";
+      } else if (tag.name === "CallInfo") {
+        const calleeName = attribute(tag, "Name");
+        const blockType = attribute(tag, "BlockType");
+        if (calleeName && (blockType === "FB" || blockType === "FC")) {
+          activeUnit.calls.push({ calleeName, calleeType: blockType, callOrder: activeUnit.calls.length + 1 });
+        }
+      }
+    });
+    parser.on("text", (text) => {
+      if (readingLanguage) languageText += text;
+      if (textCollector?.field) textCollector.value += text;
+    });
+    parser.on("closetag", (tag) => {
+      const name = closingName(tag);
+      if (textCollector && name === "Culture" && textCollector.field === "culture") {
+        textCollector.culture = textCollector.value.trim();
+        textCollector.field = null;
+      } else if (textCollector && name === "Text" && textCollector.field === "text") {
+        const text = textCollector.value.trim();
+        if (text) {
+          if (textCollector.kind === "title" && textCollector.culture === "") activeUnit!.language = text;
+          else if (textCollector.culture === "de-DE" || textCollector.fallback === "") textCollector.fallback = text;
+        }
+        textCollector.field = null;
+      } else if (textCollector && name === "MultilingualText") {
+        if (textCollector.kind === "title") activeUnit!.title = textCollector.fallback;
+        else activeUnit!.comment = textCollector.fallback;
+        textCollector = null;
+      }
+
+      if (name === "ProgrammingLanguage" && activeUnit) {
+        activeUnit.language = languageText.trim() || caller.language;
+        readingLanguage = false;
+      }
+
+      if (name === "SW.Blocks.CompileUnit" && activeUnit) {
+        const locationLabel = activeUnit.language === "LAD" || activeUnit.language === "F_LAD"
+          ? `Network ${activeUnit.order}`
+          : `Unidade ${activeUnit.order} (${activeUnit.language || caller.language})`;
+        for (const pending of activeUnit.calls) {
+          calls.push({
+            id: `${caller.id}#${activeUnit.id}#${pending.callOrder}`,
+            project: caller.project,
+            cpu: caller.cpu,
+            callerBlockId: caller.id,
+            callerName: caller.name,
+            callerType: caller.type,
+            callerLanguage: caller.language,
+            callerRelativePath: caller.relativePath,
+            calleeName: pending.calleeName,
+            calleeType: pending.calleeType,
+            compileUnitId: activeUnit.id,
+            compileUnitOrder: activeUnit.order,
+            callOrder: pending.callOrder,
+            locationLabel,
+            title: activeUnit.title,
+            comment: activeUnit.comment,
+            isInfrastructure: INFRASTRUCTURE_BLOCKS.has(pending.calleeName)
+          });
+        }
+        activeUnit = null;
+      }
+    });
+    parser.write(xml).close();
+  } catch {
+    return [];
+  }
+  return calls;
+}
+
 async function signatureFor(files: string[], refsPath: string): Promise<string> {
   const hash = createHash("sha256");
   for (const file of files.sort()) {
@@ -99,7 +237,7 @@ export class ProjectIndexer {
     if (!force) {
       try {
         const cached = JSON.parse(await readFile(this.indexPath, "utf8")) as IndexData;
-        if (cached.version === 1 && cached.signature === signature) {
+        if (cached.version === 2 && cached.signature === signature && Array.isArray(cached.calls)) {
           this.notify({ phase: "ready", current: cached.records.length, total: cached.records.length, message: "Índice local carregado." });
           return { index: cached, reused: true };
         }
@@ -109,19 +247,23 @@ export class ProjectIndexer {
     }
 
     const records: BlockRecord[] = [];
+    const calls: CallRecord[] = [];
     const total = files.length;
     for (let position = 0; position < files.length; position += 1) {
       const file = files[position];
       const xml = await readFile(file, "utf8");
       const record = parseBlockXml(file, xml, this.refsPath);
-      if (record) records.push(record);
+      if (record) {
+        records.push(record);
+        calls.push(...parseCallsXml(record, xml));
+      }
       if (position % 25 === 0 || position === total - 1) {
         this.notify({ phase: "indexing", current: position + 1, total, message: `Lendo XMLs: ${position + 1} de ${total}` });
       }
     }
 
     records.sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
-    const index: IndexData = { version: 1, generatedAt: new Date().toISOString(), signature, records };
+    const index: IndexData = { version: 2, generatedAt: new Date().toISOString(), signature, records, calls };
     await mkdir(path.dirname(this.indexPath), { recursive: true });
     await writeFile(this.indexPath, JSON.stringify(index, null, 2), "utf8");
     this.notify({ phase: "ready", current: total, total, message: `${records.length} blocos indexados.` });

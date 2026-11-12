@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import type { BlockRecord, BlockType, IndexProgress } from "../shared/types";
+import type { BlockRecord, BlockType, CallRecord, IndexProgress } from "../shared/types";
 import "./styles.css";
 
 declare global {
@@ -24,6 +24,7 @@ function unique(values: string[]) {
 
 function App() {
   const [records, setRecords] = useState<BlockRecord[]>([]);
+  const [calls, setCalls] = useState<CallRecord[]>([]);
   const [selected, setSelected] = useState<BlockRecord | null>(null);
   const [project, setProject] = useState("");
   const [cpu, setCpu] = useState("");
@@ -32,6 +33,9 @@ function App() {
   const [progress, setProgress] = useState<IndexProgress>({ phase: "checking", current: 0, total: 0, message: "Preparando…" });
   const [error, setError] = useState("");
   const [reused, setReused] = useState(false);
+  const [callQuery, setCallQuery] = useState("");
+  const [callerType, setCallerType] = useState<"" | BlockType>("");
+  const [showInfrastructure, setShowInfrastructure] = useState(false);
 
   useEffect(() => {
     const unsubscribe = window.explorer.onProgress(setProgress);
@@ -45,6 +49,7 @@ function App() {
     try {
       const result = await window.explorer.loadIndex(force);
       setRecords(result.index.records);
+      setCalls(result.index.calls);
       setReused(result.reused);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Não foi possível criar o índice.");
@@ -63,6 +68,20 @@ function App() {
       (!normalizedQuery || `${record.name} ${record.folder} ${record.relativePath}`.toLocaleLowerCase("pt-BR").includes(normalizedQuery))
     );
   }, [records, project, cpu, type, query]);
+
+  const incomingCalls = useMemo(() => {
+    if (!selected || (selected.type !== "FB" && selected.type !== "FC")) return [];
+    const normalizedQuery = callQuery.trim().toLocaleLowerCase("pt-BR");
+    return calls.filter((call) =>
+      call.project === selected.project &&
+      call.cpu === selected.cpu &&
+      call.calleeName === selected.name &&
+      call.calleeType === selected.type &&
+      (!callerType || call.callerType === callerType) &&
+      (showInfrastructure || !call.isInfrastructure) &&
+      (!normalizedQuery || `${call.callerName} ${call.title} ${call.comment} ${call.callerRelativePath}`.toLocaleLowerCase("pt-BR").includes(normalizedQuery))
+    );
+  }, [calls, selected, callerType, showInfrastructure, callQuery]);
 
   function chooseProject(value: string) {
     setProject(value);
@@ -103,7 +122,9 @@ function App() {
           </table></div>
           {!isLoading && filtered.length === 0 && <p className="no-results">Nenhum bloco corresponde aos filtros atuais.</p>}
         </div>
-        <aside className="details">{selected ? <><p className="eyebrow">DETALHES DO BLOCO</p><h2>{selected.name}</h2><dl><dt>Tipo</dt><dd>{displayType[selected.type]}</dd><dt>Linguagem</dt><dd>{selected.language}</dd><dt>Projeto</dt><dd>{selected.project}</dd><dt>CPU</dt><dd>{selected.cpu}</dd><dt>Pasta</dt><dd>{selected.folder || "Raiz de Program blocks"}</dd><dt>XML</dt><dd className="path">{selected.relativePath}</dd></dl></> : <p className="placeholder">Selecione um bloco para consultar seus metadados.</p>}</aside>
+        <aside className="details">{selected ? <><p className="eyebrow">DETALHES DO BLOCO</p><h2>{selected.name}</h2><dl><dt>Tipo</dt><dd>{displayType[selected.type]}</dd><dt>Linguagem</dt><dd>{selected.language}</dd><dt>Projeto</dt><dd>{selected.project}</dd><dt>CPU</dt><dd>{selected.cpu}</dd><dt>Pasta</dt><dd>{selected.folder || "Raiz de Program blocks"}</dd><dt>XML</dt><dd className="path">{selected.relativePath}</dd></dl>
+          {(selected.type === "FB" || selected.type === "FC") && <section className="callers"><div className="callers-heading"><strong>Chamado por</strong><span>{incomingCalls.length} ocorrências</span></div><label className="call-search">Filtrar chamadas<input value={callQuery} onChange={(event) => setCallQuery(event.target.value)} placeholder="Bloco, título ou comentário" /></label><label>Tipo do chamador<select value={callerType} onChange={(event) => setCallerType(event.target.value as "" | BlockType)}><option value="">Todos</option><option value="OB">OB</option><option value="FB">FB</option><option value="FC">FC</option></select></label><label className="checkbox"><input type="checkbox" checked={showInfrastructure} onChange={(event) => setShowInfrastructure(event.target.checked)} /> Exibir chamadas de infraestrutura</label>
+            {incomingCalls.length > 0 ? <div className="call-list">{incomingCalls.map((call) => <article className="call" key={call.id}><strong>{call.callerName}</strong><span>{displayType[call.callerType]} · {call.callerLanguage}</span><b>{call.locationLabel}</b><small>ID XML: {call.compileUnitId}</small>{call.title && <p>{call.title}</p>}{call.comment && <p className="comment">{call.comment}</p>}<code>{call.callerRelativePath}</code></article>)}</div> : <p className="no-calls">Nenhuma chamada correspondente foi encontrada.</p>}</section>}</> : <p className="placeholder">Selecione um bloco para consultar seus metadados.</p>}</aside>
       </section>
     </>}
   </main>;
