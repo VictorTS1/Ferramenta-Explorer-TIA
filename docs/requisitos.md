@@ -39,9 +39,12 @@ Ela deve:
 - identificar os tipos `OB`, `FB`, `FC`, `InstanceDB` e `GlobalDB`;
 - extrair projeto, CPU, pasta, nome, tipo, linguagem e caminho do XML;
 - permitir filtros por projeto, CPU e categoria/tipo de bloco;
+- apresentar uma árvore de navegação inspirada no TIA Portal: projeto, CPU, `Program blocks`, pastas e blocos;
+- exibir o nome original das pastas com tradução complementar, como `50_Stationen — Estações`;
 - permitir pesquisa textual por nome e caminho;
 - permitir pesquisa exata por número técnico com prefixo de tipo, como `FC13`, `FB200` e `DB2010`;
 - tratar uma consulta composta somente por números como pesquisa textual, sem presumir o tipo de bloco;
+- expandir pesquisas contextuais em português, incluindo `solda`, `transportador`, `robô` e `estação`, para os termos técnicos do export e para programas que chamam os blocos encontrados;
 - listar projeto, CPU, pasta, nome, tipo, linguagem e caminho completo;
 - apresentar um painel de detalhes para o bloco selecionado;
 - informar progresso, referências ausentes e falhas de leitura;

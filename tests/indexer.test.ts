@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parseBlockXml, parseCallsXml } from "../src/main/indexer";
+import { semanticTermsForQuery, translatedFolderLabel } from "../src/shared/semantic";
 
 describe("amostras de referência", () => {
   const root = path.resolve(__dirname, "..");
@@ -52,5 +53,11 @@ describe("amostras de referência", () => {
     const xml = `<Document><SW.Blocks.CompileUnit ID="A"><AttributeList><NetworkSource><Call><CallInfo Name="R_Trig" BlockType="FB" /></Call></NetworkSource><ProgrammingLanguage>LAD</ProgrammingLanguage></AttributeList></SW.Blocks.CompileUnit></Document>`;
     const [call] = parseCallsXml(caller, xml);
     expect(call).toMatchObject({ calleeName: "R_Trig", isInfrastructure: true, locationLabel: "Network 1" });
+  });
+
+  it("traduz pastas e expande pesquisas semânticas", () => {
+    expect(translatedFolderLabel("50_Stationen")).toBe("50_Stationen — Estações");
+    expect(semanticTermsForQuery("solda")).toContain("schweiss");
+    expect(semanticTermsForQuery("robôs")).toContain("roboter");
   });
 });
