@@ -1,5 +1,12 @@
 # Requisitos — Ferramenta Explorer TIA
 
+## Ajuda tecnica
+
+- Os PDFs de ajuda devem ficar em `helps/`, fora do Git e sem alteracao pela ferramenta.
+- A ferramenta deve localizar PDFs recursivamente e associa-los ao bloco quando o nome do arquivo, sem `.pdf`, for igual ao nome tecnico do bloco.
+- A lista de PDFs deve aparecer no painel de detalhes e abrir no visualizador padrao do Windows.
+- A assinatura do indice deve considerar os PDFs de `helps/` para atualizar a lista quando os arquivos mudarem.
+
 ## Objetivo
 
 Desenvolver uma ferramenta desktop local para explorar e pesquisar exportações XML do TIA Portal usadas em linhas de produção de armação automotiva.

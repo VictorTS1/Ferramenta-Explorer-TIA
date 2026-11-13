@@ -1,10 +1,12 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { stat } from "node:fs/promises";
 import path from "node:path";
 import { ProjectIndexer } from "./indexer";
-import type { IndexProgress } from "../shared/types";
+import type { HelpDocument, IndexProgress } from "../shared/types";
 
 const isDevelopment = !app.isPackaged;
 const rootPath = path.resolve(__dirname, "..", "..");
+let indexedHelpDocuments: HelpDocument[] = [];
 
 function createWindow() {
   const window = new BrowserWindow({
@@ -29,7 +31,25 @@ function createWindow() {
 app.whenReady().then(() => {
   ipcMain.handle("index:load", async (event, force = false) => {
     const notify = (progress: IndexProgress) => event.sender.send("index:progress", progress);
-    return new ProjectIndexer(rootPath, notify).load(Boolean(force));
+    const result = await new ProjectIndexer(rootPath, notify).load(Boolean(force));
+    indexedHelpDocuments = result.index.helpDocuments;
+    return result;
+  });
+  ipcMain.handle("help:list", () => indexedHelpDocuments);
+  ipcMain.handle("help:open", async (_event, helpId: string) => {
+    if (typeof helpId !== "string" || !helpId.toLowerCase().endsWith(".pdf")) {
+      throw new Error("Documento de ajuda invÃ¡lido.");
+    }
+    const helpsPath = path.join(rootPath, "helps");
+    const targetPath = path.resolve(helpsPath, helpId);
+    const relativePath = path.relative(helpsPath, targetPath);
+    if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+      throw new Error("O documento solicitado estÃ¡ fora da pasta de ajuda.");
+    }
+    const details = await stat(targetPath);
+    if (!details.isFile()) throw new Error("O documento de ajuda nÃ£o foi encontrado.");
+    const failure = await shell.openPath(targetPath);
+    if (failure) throw new Error(`NÃ£o foi possÃ­vel abrir o PDF: ${failure}`);
   });
   createWindow();
   app.on("activate", () => {

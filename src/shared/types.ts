@@ -34,12 +34,19 @@ export interface CallRecord {
   isInfrastructure: boolean;
 }
 
+export interface HelpDocument {
+  id: string;
+  name: string;
+  relativePath: string;
+}
+
 export interface IndexData {
-  version: 3;
+  version: 4;
   generatedAt: string;
   signature: string;
   records: BlockRecord[];
   calls: CallRecord[];
+  helpDocuments: HelpDocument[];
 }
 
 export interface IndexProgress {
@@ -56,5 +63,7 @@ export interface IndexResponse {
 
 export interface ExplorerApi {
   loadIndex(force?: boolean): Promise<IndexResponse>;
+  listHelpDocuments(): Promise<HelpDocument[]>;
+  openHelp(helpId: string): Promise<void>;
   onProgress(listener: (progress: IndexProgress) => void): () => void;
 }

@@ -1,3 +1,5 @@
+import type { HelpDocument } from "./types";
+
 const SEMANTIC_ALIASES: Record<string, string[]> = {
   solda: ["schweiss", "schweissen", "weld", "migmag", "bolzen", "laser", "primespmm", "rob_schweissen"],
   soldas: ["schweiss", "schweissen", "weld", "migmag", "bolzen", "laser", "primespmm", "rob_schweissen"],
@@ -42,4 +44,9 @@ export function translatedFolderLabel(name: string): string {
     "DB-Anwender": "DBs de usuário"
   };
   return translations[name] ? `${name} — ${translations[name]}` : name;
+}
+
+export function matchingHelpDocuments(blockName: string, documents: HelpDocument[]): HelpDocument[] {
+  const normalizedName = normalizeSearch(blockName);
+  return documents.filter((document) => normalizeSearch(document.name) === normalizedName);
 }

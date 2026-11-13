@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { SaxesParser } from "saxes";
-import type { BlockRecord, BlockType, CallRecord, CallableBlockType, IndexData, IndexProgress } from "../shared/types";
+import type { BlockRecord, BlockType, CallRecord, CallableBlockType, HelpDocument, IndexData, IndexProgress } from "../shared/types";
 
 const BLOCK_TYPES: Array<[RegExp, BlockType]> = [
   [/<SW\.Blocks\.OB\b/, "OB"],
@@ -23,14 +23,31 @@ export class MissingReferencesError extends Error {
   }
 }
 
-async function walkXml(directory: string): Promise<string[]> {
+async function walkFiles(directory: string, extension: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(entries.map(async (entry) => {
     const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) return walkXml(entryPath);
-    return entry.isFile() && entry.name.toLowerCase().endsWith(".xml") ? [entryPath] : [];
+    if (entry.isDirectory()) return walkFiles(entryPath, extension);
+    return entry.isFile() && entry.name.toLowerCase().endsWith(extension) ? [entryPath] : [];
   }));
   return nested.flat();
+}
+
+async function walkXml(directory: string): Promise<string[]> {
+  return walkFiles(directory, ".xml");
+}
+
+async function readHelpDocuments(helpsPath: string): Promise<HelpDocument[]> {
+  try {
+    await stat(helpsPath);
+  } catch {
+    return [];
+  }
+  const files = await walkFiles(helpsPath, ".pdf");
+  return files.map((filePath) => {
+    const relativePath = path.relative(helpsPath, filePath).replaceAll(path.sep, "/");
+    return { id: relativePath, name: path.basename(filePath, ".pdf"), relativePath };
+  }).sort((left, right) => left.relativePath.localeCompare(right.relativePath, "pt-BR"));
 }
 
 function extractField(xml: string, expression: RegExp): string {
@@ -201,11 +218,11 @@ export function parseCallsXml(caller: BlockRecord, xml: string): CallRecord[] {
   return calls;
 }
 
-async function signatureFor(files: string[], refsPath: string): Promise<string> {
+async function signatureFor(sources: Array<{ filePath: string; key: string }>): Promise<string> {
   const hash = createHash("sha256");
-  for (const file of files.sort()) {
-    const details = await stat(file);
-    hash.update(path.relative(refsPath, file));
+  for (const source of sources.sort((left, right) => left.key.localeCompare(right.key))) {
+    const details = await stat(source.filePath);
+    hash.update(source.key);
     hash.update(`${details.size}:${details.mtimeMs}`);
   }
   return hash.digest("hex");
@@ -225,6 +242,10 @@ export class ProjectIndexer {
     return path.join(this.rootPath, "output", "block-index.json");
   }
 
+  private get helpsPath() {
+    return path.join(this.rootPath, "helps");
+  }
+
   async load(force = false): Promise<{ index: IndexData; reused: boolean }> {
     this.notify({ phase: "checking", current: 0, total: 0, message: "Verificando referências…" });
     try {
@@ -234,12 +255,16 @@ export class ProjectIndexer {
     }
 
     const files = await walkXml(this.refsPath);
-    const signature = await signatureFor(files, this.refsPath);
+    const helpDocuments = await readHelpDocuments(this.helpsPath);
+    const signature = await signatureFor([
+      ...files.map((filePath) => ({ filePath, key: `refs/${path.relative(this.refsPath, filePath)}` })),
+      ...helpDocuments.map((document) => ({ filePath: path.join(this.helpsPath, document.relativePath), key: `helps/${document.relativePath}` }))
+    ]);
 
     if (!force) {
       try {
         const cached = JSON.parse(await readFile(this.indexPath, "utf8")) as IndexData;
-        if (cached.version === 3 && cached.signature === signature && Array.isArray(cached.calls)) {
+        if (cached.version === 4 && cached.signature === signature && Array.isArray(cached.calls) && Array.isArray(cached.helpDocuments)) {
           this.notify({ phase: "ready", current: cached.records.length, total: cached.records.length, message: "Índice local carregado." });
           return { index: cached, reused: true };
         }
@@ -265,7 +290,7 @@ export class ProjectIndexer {
     }
 
     records.sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
-    const index: IndexData = { version: 3, generatedAt: new Date().toISOString(), signature, records, calls };
+    const index: IndexData = { version: 4, generatedAt: new Date().toISOString(), signature, records, calls, helpDocuments };
     await mkdir(path.dirname(this.indexPath), { recursive: true });
     await writeFile(this.indexPath, JSON.stringify(index, null, 2), "utf8");
     this.notify({ phase: "ready", current: total, total, message: `${records.length} blocos indexados.` });

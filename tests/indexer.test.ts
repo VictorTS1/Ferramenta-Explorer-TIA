@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parseBlockXml, parseCallsXml } from "../src/main/indexer";
-import { semanticTermsForQuery, translatedFolderLabel } from "../src/shared/semantic";
+import { matchingHelpDocuments, semanticTermsForQuery, translatedFolderLabel } from "../src/shared/semantic";
 
 describe("amostras de referência", () => {
   const root = path.resolve(__dirname, "..");
@@ -59,5 +59,13 @@ describe("amostras de referência", () => {
     expect(translatedFolderLabel("50_Stationen")).toBe("50_Stationen — Estações");
     expect(semanticTermsForQuery("solda")).toContain("schweiss");
     expect(semanticTermsForQuery("robôs")).toContain("roboter");
+  });
+
+  it("associa PDFs pelo nome tecnico do bloco", () => {
+    const documents = [
+      { id: "Library Types/FB_Ventil.pdf", name: "FB_Ventil", relativePath: "Library Types/FB_Ventil.pdf" },
+      { id: "Library Types/FC_Ventil.pdf", name: "FC_Ventil", relativePath: "Library Types/FC_Ventil.pdf" }
+    ];
+    expect(matchingHelpDocuments("FB_Ventil", documents)).toEqual([documents[0]]);
   });
 });

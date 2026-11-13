@@ -13,6 +13,8 @@ npm run dev
 
 A aplicação sempre lê `refs/` na raiz do projeto. Na primeira abertura, ela cria `output/block-index.json`; use **Reindexar** para recriar o cache quando os XMLs forem alterados.
 
+Os PDFs de ajuda ficam em `helps/`, inclusive em subpastas. Quando o nome tecnico do PDF for igual ao nome do bloco, como `helps/Library Types/FB_Ventil.pdf`, ele aparece nos detalhes e abre no visualizador padrao do Windows.
+
 ## Estrutura
 
 - `src/main/`: processo Electron e indexação dos XMLs.
