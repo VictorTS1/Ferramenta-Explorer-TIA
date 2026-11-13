@@ -247,6 +247,17 @@ export class ProjectIndexer {
   }
 
   async load(force = false): Promise<{ index: IndexData; reused: boolean }> {
+    if (!force) {
+      try {
+        const cached = JSON.parse(await readFile(this.indexPath, "utf8")) as IndexData;
+        if (cached.version === 4 && Array.isArray(cached.records) && Array.isArray(cached.calls) && Array.isArray(cached.helpDocuments)) {
+          this.notify({ phase: "ready", current: cached.records.length, total: cached.records.length, message: "Indice local carregado." });
+          return { index: cached, reused: true };
+        }
+      } catch {
+        // Sem cache valido: a primeira abertura precisa criar o indice.
+      }
+    }
     this.notify({ phase: "checking", current: 0, total: 0, message: "Verificando referências…" });
     try {
       await stat(this.refsPath);

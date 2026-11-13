@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
-import { parseBlockXml, parseCallsXml } from "../src/main/indexer";
+import { parseBlockXml, parseCallsXml, ProjectIndexer } from "../src/main/indexer";
 import { matchingHelpDocuments, semanticTermsForQuery, translatedFolderLabel } from "../src/shared/semantic";
 
 describe("amostras de referência", () => {
@@ -67,5 +68,18 @@ describe("amostras de referência", () => {
       { id: "Library Types/FC_Ventil.pdf", name: "FC_Ventil", relativePath: "Library Types/FC_Ventil.pdf" }
     ];
     expect(matchingHelpDocuments("FB_Ventil", documents)).toEqual([documents[0]]);
+  });
+
+  it("abre o cache sem precisar da pasta de referencias", async () => {
+    const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "explorer-tia-"));
+    const index = { version: 4, generatedAt: "2026-01-01T00:00:00.000Z", signature: "cache", records: [], calls: [], helpDocuments: [] };
+    try {
+      await mkdir(path.join(temporaryRoot, "output"));
+      await writeFile(path.join(temporaryRoot, "output", "block-index.json"), JSON.stringify(index));
+      const result = await new ProjectIndexer(temporaryRoot, () => undefined).load();
+      expect(result).toEqual({ index, reused: true });
+    } finally {
+      await rm(temporaryRoot, { recursive: true, force: true });
+    }
   });
 });
