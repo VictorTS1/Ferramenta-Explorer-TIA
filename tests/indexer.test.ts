@@ -59,6 +59,25 @@ describe("amostras de referência", () => {
   it("traduz pastas e expande pesquisas semânticas", () => {
     expect(translatedFolderLabel("50_Stationen")).toBe("50_Stationen — Estações");
     expect(semanticTermsForQuery("solda")).toContain("schweiss");
+    expect(semanticTermsForQuery("solda")).not.toContain("laser");
+    expect(semanticTermsForQuery("laser")).toContain("rob_laser");
+    expect(semanticTermsForQuery("cola")).toContain("rob_kleben");
+    expect(semanticTermsForQuery("estampagem")).toContain("rob_stanzen");
+    expect(semanticTermsForQuery("uniao")).toContain("rob_fuegen");
+    expect(semanticTermsForQuery(`uni${String.fromCharCode(0x00e3)}o`)).toContain("rob_fuegen");
+    expect(semanticTermsForQuery("medicoes")).toContain("rob_messen");
+    expect(semanticTermsForQuery("visao")).toContain("rob_vision_k");
+    expect(semanticTermsForQuery(`vis${String.fromCharCode(0x00e3)}o`)).toContain("rob_vision_k");
+    expect(semanticTermsForQuery("manipulacao")).toContain("rob_greifer");
+    expect(semanticTermsForQuery("fixacoes")).toContain("rob_fds");
+    expect(semanticTermsForQuery("transportes")).toContain("foerdertechnik");
+    expect(semanticTermsForQuery("elevadores")).toContain("hubremech");
+    expect(semanticTermsForQuery("mesa")).toContain("drehtfu");
+    expect(semanticTermsForQuery("mesa giratoria")).toContain("drehtfu");
+    expect(semanticTermsForQuery("tambores")).toContain("trommelfu");
+    expect(semanticTermsForQuery("esteira")).toContain("elefant2_amx_rbock");
+    expect(semanticTermsForQuery("transferencia")).toContain("gw_elefant2");
+    expect(semanticTermsForQuery("porta de seguranca")).toContain("tor_profisafe");
     expect(semanticTermsForQuery("robôs")).toContain("roboter");
   });
 
