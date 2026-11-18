@@ -40,12 +40,54 @@ export interface HelpDocument {
   relativePath: string;
 }
 
+export type VariableKind = "blockMember" | "plcTag";
+export type VariableUseScope = "LocalVariable" | "GlobalVariable";
+
+export interface VariableRecord {
+  id: string;
+  kind: VariableKind;
+  project: string;
+  cpu: string;
+  name: string;
+  symbolPath: string;
+  dataType: string;
+  comment: string;
+  section: string;
+  ownerBlockId: string;
+  ownerName: string;
+  ownerType: BlockType | "PlcTagTable";
+  tableName: string;
+  logicalAddress: string;
+  relativePath: string;
+}
+
+export interface VariableUseRecord {
+  id: string;
+  project: string;
+  cpu: string;
+  scope: VariableUseScope;
+  symbolPath: string;
+  targetVariableId: string;
+  callerBlockId: string;
+  callerName: string;
+  callerType: BlockType;
+  callerLanguage: string;
+  callerRelativePath: string;
+  compileUnitId: string;
+  compileUnitOrder: number;
+  locationLabel: string;
+  title: string;
+  comment: string;
+}
+
 export interface IndexData {
-  version: 4;
+  version: 5;
   generatedAt: string;
   signature: string;
   records: BlockRecord[];
   calls: CallRecord[];
+  variables: VariableRecord[];
+  variableUses: VariableUseRecord[];
   helpDocuments: HelpDocument[];
 }
 

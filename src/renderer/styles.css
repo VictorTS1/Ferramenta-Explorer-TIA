@@ -11,6 +11,7 @@ h1, h2, p { margin-top: 0; } h1 { margin-bottom: 6px; font-size: 32px; } h2 { fo
 .index-note { margin: -8px 0 18px; color: #aab7c8; font-size: 12px; }
 .indicator { width: 9px; height: 9px; border-radius: 50%; background: #f3b562; } .indicator.ready { background: #60d394; } .indicator.error { background: #fa6b6b; } .cache { margin-left: auto; color: #60d394; font-size: 12px; }
 .filters { display: grid; grid-template-columns: 1fr 1.1fr 1fr 2fr; gap: 14px; padding: 18px; border: 1px solid #304156; border-radius: 10px; background: #172438d9; }
+.tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid #304156; }.tabs button { border: 0; border-bottom: 3px solid transparent; padding: 10px 15px; color: #aab7c8; background: transparent; cursor: pointer; font-weight: 700; }.tabs button.active { border-bottom-color: #3e9cdd; color: #e9eef7; }
 label { display: grid; gap: 6px; color: #b9c8d9; font-size: 12px; font-weight: 700; } input, select { min-width: 0; border: 1px solid #40536c; border-radius: 6px; padding: 9px 10px; color: #edf4ff; background: #0e1725; }
 .content { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; margin-top: 18px; } .results, .details, .empty { border: 1px solid #304156; border-radius: 10px; background: #142033d9; }
 .result-heading { display: flex; justify-content: space-between; padding: 16px 18px; color: #aab7c8; font-size: 13px; } .result-heading strong { color: #eef5ff; }

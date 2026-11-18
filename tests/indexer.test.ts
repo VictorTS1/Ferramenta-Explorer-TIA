@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { parseBlockXml, parseCallsXml, ProjectIndexer } from "../src/main/indexer";
+import { parseBlockVariablesXml, parseBlockXml, parseCallsXml, parsePlcTagsXml, parseVariableUsesXml, ProjectIndexer } from "../src/main/indexer";
 import { matchingHelpDocuments, semanticTermsForQuery, translatedFolderLabel } from "../src/shared/semantic";
 
 describe("amostras de referência", () => {
@@ -56,6 +56,29 @@ describe("amostras de referência", () => {
     expect(call).toMatchObject({ calleeName: "R_Trig", isInfrastructure: true, locationLabel: "Network 1" });
   });
 
+  it("indexa somente membros diretos da interface do bloco", () => {
+    const refsPath = path.join(root, "refs");
+    const filePath = path.join(refsPath, "Projeto.ap17", "CPU", "Program blocks", "x.xml");
+    const block = parseBlockXml(filePath, "<SW.Blocks.FB><Name>Teste</Name><ProgrammingLanguage>SCL</ProgrammingLanguage></SW.Blocks.FB>", refsPath)!;
+    const xml = `<Document><Section Name="Input"><Member Name="Entrada" Datatype="Bool"><Comment><MultiLanguageText Lang="de-DE">Entrada principal</MultiLanguageText></Comment></Member><Member Name="Estrutura" Datatype="Struct"><Sections><Section Name="None"><Member Name="Interna" Datatype="Int" /></Section></Sections></Member></Section><Section Name="Temp"><Member Name="Aux" Datatype="Real" /></Section></Document>`;
+    expect(parseBlockVariablesXml(block, xml)).toMatchObject([
+      { name: "Entrada", dataType: "Bool", section: "Input", comment: "Entrada principal" },
+      { name: "Estrutura", dataType: "Struct", section: "Input" },
+      { name: "Aux", dataType: "Real", section: "Temp" }
+    ]);
+  });
+
+  it("extrai tags PLC e usos locais e globais com caminho completo", () => {
+    const refsPath = path.join(root, "refs");
+    const tagPath = path.join(refsPath, "Projeto.ap17", "CPU", "PLC tags", "Tabela.xml");
+    const tags = parsePlcTagsXml(tagPath, `<Document><SW.Tags.PlcTagTable><AttributeList><Name>Tabela</Name></AttributeList><SW.Tags.PlcTag ID="1"><AttributeList><DataTypeName>Bool</DataTypeName><LogicalAddress>%M1.0</LogicalAddress><Name>Clock_Byte</Name></AttributeList></SW.Tags.PlcTag></SW.Tags.PlcTagTable></Document>`, refsPath);
+    expect(tags).toMatchObject([{ name: "Clock_Byte", tableName: "Tabela", dataType: "Bool", logicalAddress: "%M1.0", kind: "plcTag" }]);
+    const blockPath = path.join(refsPath, "Projeto.ap17", "CPU", "Program blocks", "x.xml");
+    const block = parseBlockXml(blockPath, "<SW.Blocks.FC><Name>Teste</Name><ProgrammingLanguage>SCL</ProgrammingLanguage></SW.Blocks.FC>", refsPath)!;
+    const uses = parseVariableUsesXml(block, `<Document><SW.Blocks.CompileUnit ID="A"><AttributeList><NetworkSource><StructuredText><Access Scope="LocalVariable" UId="1"><Symbol><Component Name="Entrada" /></Symbol></Access><Access Scope="GlobalVariable" UId="2"><Symbol><Component Name="DB_ARG" /><Component Name="Reset" /></Symbol></Access></StructuredText></NetworkSource><ProgrammingLanguage>SCL</ProgrammingLanguage></AttributeList></SW.Blocks.CompileUnit></Document>`);
+    expect(uses).toMatchObject([{ scope: "LocalVariable", symbolPath: "Entrada", locationLabel: "Unidade 1 (SCL)" }, { scope: "GlobalVariable", symbolPath: "DB_ARG.Reset" }]);
+  });
+
   it("traduz pastas e expande pesquisas semânticas", () => {
     expect(translatedFolderLabel("50_Stationen")).toBe("50_Stationen — Estações");
     expect(semanticTermsForQuery("solda")).toContain("schweiss");
@@ -91,7 +114,7 @@ describe("amostras de referência", () => {
 
   it("abre o cache sem precisar da pasta de referencias", async () => {
     const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "explorer-tia-"));
-    const index = { version: 4, generatedAt: "2026-01-01T00:00:00.000Z", signature: "cache", records: [], calls: [], helpDocuments: [] };
+    const index = { version: 5, generatedAt: "2026-01-01T00:00:00.000Z", signature: "cache", records: [], calls: [], variables: [], variableUses: [], helpDocuments: [] };
     try {
       await mkdir(path.join(temporaryRoot, "output"));
       await writeFile(path.join(temporaryRoot, "output", "block-index.json"), JSON.stringify(index));
